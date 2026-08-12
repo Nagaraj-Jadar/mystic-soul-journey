@@ -1,0 +1,136 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Brand palette */
+  --color-ivory: var(--ivory);
+  --color-sand: var(--sand);
+  --color-beige: var(--beige);
+  --color-peach: var(--peach);
+  --color-sage: var(--sage);
+  --color-sage-foreground: var(--sage-foreground);
+  --color-olive: var(--olive);
+  --color-terracotta: var(--terracotta);
+  --color-gold: var(--gold);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  color-scheme: light;
+  --radius: 0.9rem;
+
+  /* Core */
+  --background: oklch(0.972 0.01 85);
+  --foreground: oklch(0.34 0.024 135);
+  --card: oklch(0.985 0.007 88);
+  --card-foreground: oklch(0.34 0.024 135);
+  --popover: oklch(0.985 0.007 88);
+  --popover-foreground: oklch(0.34 0.024 135);
+
+  --primary: oklch(0.45 0.058 135);          /* deep olive green */
+  --primary-foreground: oklch(0.975 0.012 90);
+  --secondary: oklch(0.93 0.016 78);          /* soft beige */
+  --secondary-foreground: oklch(0.39 0.035 135);
+  --muted: oklch(0.945 0.013 80);             /* warm sand */
+  --muted-foreground: oklch(0.58 0.026 120);
+  --accent: oklch(0.66 0.12 45);             /* dusty terracotta */
+  --accent-foreground: oklch(0.985 0.012 90);
+  --destructive: oklch(0.577 0.18 27);
+  --border: oklch(0.89 0.014 78);
+  --input: oklch(0.9 0.014 78);
+  --ring: oklch(0.55 0.05 135);
+
+  /* Brand */
+  --ivory: oklch(0.972 0.01 85);
+  --sand: oklch(0.945 0.013 80);
+  --beige: oklch(0.93 0.016 78);
+  --peach: oklch(0.92 0.03 55);
+  --sage: oklch(0.72 0.04 145);
+  --sage-foreground: oklch(0.4 0.035 140);
+  --olive: oklch(0.45 0.058 135);
+  --terracotta: oklch(0.66 0.12 45);
+  --gold: oklch(0.72 0.08 80);
+
+  --chart-1: oklch(0.42 0.055 135);
+  --chart-2: oklch(0.63 0.115 45);
+  --chart-3: oklch(0.72 0.04 145);
+  --chart-4: oklch(0.72 0.08 80);
+  --chart-5: oklch(0.55 0.05 135);
+
+  --sidebar: oklch(0.985 0.007 88);
+  --sidebar-foreground: oklch(0.34 0.02 135);
+  --sidebar-primary: oklch(0.42 0.055 135);
+  --sidebar-primary-foreground: oklch(0.975 0.012 90);
+  --sidebar-accent: oklch(0.945 0.013 80);
+  --sidebar-accent-foreground: oklch(0.36 0.03 135);
+  --sidebar-border: oklch(0.9 0.014 78);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+}
+
+@layer utilities {
+  .font-script {
+    font-family: var(--font-serif);
+    font-style: italic;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
