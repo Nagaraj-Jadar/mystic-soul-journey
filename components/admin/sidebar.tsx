@@ -1,14 +1,24 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { adminNav } from "@/lib/admin-nav"
 import { Logo } from "@/components/brand/logo"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    onNavigate?.()
+    router.push("/admin/login")
+    router.refresh()
+  }
 
   return (
     <div className="flex h-full flex-col bg-card">
@@ -44,14 +54,14 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="px-3 pb-3">
-        <Link
-          href="/admin/login"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
           Logout
-        </Link>
+        </button>
       </div>
 
       <div className="m-3 mt-0 rounded-2xl bg-gradient-to-br from-peach/50 to-secondary p-4">

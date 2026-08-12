@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import {
   CalendarCheck,
   CalendarDays,
@@ -18,12 +19,8 @@ import { Panel, PanelHeader, StatCard, StatusBadge, formatINR } from "@/componen
 import { ScheduleList } from "@/components/admin/schedule-list"
 import { MiniCalendar } from "@/components/admin/mini-calendar"
 import { EarningsChart } from "@/components/admin/earnings-chart"
-import {
-  dashboardStats as s,
-  todaySchedule,
-  upcomingAppointments,
-  recentPayments,
-} from "@/lib/data/admin"
+import { createClient } from "@/lib/supabase/client"
+import { fetchDashboardData } from "@/lib/admin/dashboard-live"
 
 const quickActions = [
   { label: "Add Availability", icon: Plus, href: "/admin/availability" },
@@ -35,22 +32,60 @@ const quickActions = [
 ]
 
 export default function AdminDashboard() {
+  const [displayName, setDisplayName] = useState("Soumyaa")
+  const [stats, setStats] = useState({
+    todayAppointments: 0,
+    thisWeek: 0,
+    thisWeekChange: "",
+    thisMonth: 0,
+    thisMonthChange: "",
+    pendingPayments: 0,
+    upcomingCourses: 0,
+    totalEarnings: 0,
+    earningsChange: "",
+  })
+  const [todaySchedule, setTodaySchedule] = useState<any[]>([])
+  const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([])
+  const [recentPayments, setRecentPayments] = useState<any[]>([])
+  const [todayLabel, setTodayLabel] = useState("")
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function loadUserAndData() {
+      const { data: userData } = await supabase.auth.getUser()
+      const name = userData.user?.user_metadata?.full_name || userData.user?.user_metadata?.name || userData.user?.email?.split("@")[0] || "Soumyaa"
+      setDisplayName(name)
+
+      const dashboard = await fetchDashboardData()
+      setStats(dashboard.stats)
+      setTodaySchedule(dashboard.todaySchedule)
+      setUpcomingAppointments(dashboard.upcomingAppointments)
+      setRecentPayments(dashboard.recentPayments)
+
+      const today = new Date()
+      setTodayLabel(today.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }))
+    }
+
+    loadUserAndData()
+  }, [])
+
   return (
     <AdminShell
       title={
         <span>
-          Good Morning, <span className="text-terracotta">Soumyaa</span>
+          Good Morning, <span className="text-terracotta">{displayName}</span>
         </span>
       }
       subtitle="Welcome back to your dashboard"
     >
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <StatCard icon={CalendarCheck} label="Today's Appointments" value={s.todayAppointments} tone="sage" />
-        <StatCard icon={CalendarDays} label="This Week" value={s.thisWeek} change={s.thisWeekChange} tone="peach" />
-        <StatCard icon={Users} label="This Month" value={s.thisMonth} change={s.thisMonthChange} tone="sage" />
-        <StatCard icon={IndianRupee} label="Pending Payments" value={s.pendingPayments} tone="terracotta" />
-        <StatCard icon={BookOpen} label="Upcoming Courses" value={s.upcomingCourses} tone="peach" />
+        <StatCard icon={CalendarCheck} label="Today's Appointments" value={stats.todayAppointments} tone="sage" />
+        <StatCard icon={CalendarDays} label="This Week" value={stats.thisWeek} change={stats.thisWeekChange} tone="peach" />
+        <StatCard icon={Users} label="This Month" value={stats.thisMonth} change={stats.thisMonthChange} tone="sage" />
+        <StatCard icon={IndianRupee} label="Pending Payments" value={stats.pendingPayments} tone="terracotta" />
+        <StatCard icon={BookOpen} label="Upcoming Courses" value={stats.upcomingCourses} tone="peach" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
@@ -61,7 +96,7 @@ export default function AdminDashboard() {
               title="Today's Schedule"
               action={
                 <div className="flex items-center gap-3">
-                  <span className="hidden text-sm text-muted-foreground sm:inline">18 June 2025</span>
+                  <span className="hidden text-sm text-muted-foreground sm:inline">{todayLabel || "Today"}</span>
                   <Link
                     href="/admin/calendar"
                     className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
@@ -111,8 +146,8 @@ export default function AdminDashboard() {
               />
               <p className="text-sm text-muted-foreground">Total Earnings</p>
               <div className="mb-4 flex items-center gap-2">
-                <span className="font-serif text-3xl text-foreground">{formatINR(s.totalEarnings)}</span>
-                <span className="text-xs font-medium text-primary">↑ {s.earningsChange}</span>
+                <span className="font-serif text-3xl text-foreground">{formatINR(stats.totalEarnings)}</span>
+                {stats.earningsChange ? <span className="text-xs font-medium text-primary">↑ {stats.earningsChange}</span> : null}
               </div>
               <EarningsChart />
             </Panel>

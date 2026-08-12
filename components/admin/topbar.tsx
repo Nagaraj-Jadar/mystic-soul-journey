@@ -1,7 +1,9 @@
 "use client"
 
 import Image from "next/image"
+import { useEffect, useState } from "react"
 import { Bell, MessageSquare, ChevronDown, Menu } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface TopbarProps {
   title: React.ReactNode
@@ -10,6 +12,20 @@ interface TopbarProps {
 }
 
 export function AdminTopbar({ title, subtitle, onMenuClick }: TopbarProps) {
+  const [displayName, setDisplayName] = useState("Soumyaa")
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function loadProfile() {
+      const { data } = await supabase.auth.getUser()
+      const name = data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || data.user?.email?.split("@")[0] || "Soumyaa"
+      setDisplayName(name)
+    }
+
+    loadProfile()
+  }, [])
+
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border/60 bg-background/85 px-4 py-4 backdrop-blur-md md:px-8">
       <div className="flex items-center gap-3">
@@ -52,13 +68,13 @@ export function AdminTopbar({ title, subtitle, onMenuClick }: TopbarProps) {
         <div className="flex items-center gap-2 rounded-xl border border-border py-1.5 pl-1.5 pr-2 md:pr-3">
           <Image
             src="/practitioner-about.png"
-            alt="Soumyaa"
+            alt={displayName}
             width={36}
             height={36}
             className="h-9 w-9 rounded-lg object-cover"
           />
           <div className="hidden text-left leading-tight sm:block">
-            <p className="text-sm font-semibold text-foreground">Soumyaa</p>
+            <p className="text-sm font-semibold text-foreground">{displayName}</p>
             <p className="text-xs text-muted-foreground">Administrator</p>
           </div>
           <ChevronDown className="hidden h-4 w-4 text-muted-foreground sm:block" strokeWidth={1.75} />
