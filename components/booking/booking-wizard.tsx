@@ -667,7 +667,7 @@ function StepDetails({ details, setDetails }: { details: Details; setDetails: (d
             onChange={update("phone")}
             type="tel"
             className={inputClass}
-            placeholder="98765 43210"
+            placeholder="97310 55222"
           />
         </div>
       </label>

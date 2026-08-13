@@ -98,7 +98,7 @@ export default function ContactPage() {
                       <input required type="text" name="name" className={inputClass} placeholder="Your name" />
                     </Field>
                     <Field label="WhatsApp Number" required>
-                      <input required type="tel" name="phone" className={inputClass} placeholder="+91 98765 43210" />
+                      <input required type="tel" name="phone" className={inputClass} placeholder="+91 97310 55222" />
                     </Field>
                   </div>
                   <Field label="Email Address">

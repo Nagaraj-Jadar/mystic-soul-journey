@@ -94,7 +94,7 @@ export default function ProfilePage() {
               <Field label="Full Name" defaultValue="Soumyaa" />
               <Field label="Title" defaultValue="Spiritual Healer & Guide" />
               <Field label="Email Address" type="email" defaultValue="soumyaa@mysticsouljourney.com" />
-              <Field label="WhatsApp Number" defaultValue="+91 98765 43210" />
+              <Field label="WhatsApp Number" defaultValue="+91 97310 55222" />
             </div>
             <div className="mt-4">
               <Field

@@ -137,7 +137,7 @@ export interface Client {
 }
 
 export const clients: Client[] = [
-  { id: 'c1', name: 'Priya Sharma', email: 'priya.sharma@email.com', phone: '+91 98765 43210', sessions: 8, lastSession: '18 Jun 2025', avatar: '/avatar-1.png' },
+  { id: 'c1', name: 'Priya Sharma', email: 'priya.sharma@email.com', phone: '+91 97310 55222', sessions: 8, lastSession: '18 Jun 2025', avatar: '/avatar-1.png' },
   { id: 'c2', name: 'Rahul Verma', email: 'rahul.verma@email.com', phone: '+91 98220 11234', sessions: 4, lastSession: '18 Jun 2025', avatar: '/avatar-2.png' },
   { id: 'c3', name: 'Ananya Iyer', email: 'ananya.iyer@email.com', phone: '+91 90000 55221', sessions: 2, lastSession: '18 Jun 2025', avatar: '/avatar-3.png' },
   { id: 'c4', name: 'Meera Nair', email: 'meera.nair@email.com', phone: '+91 98111 22233', sessions: 6, lastSession: '17 Jun 2025', avatar: '/avatar-1.png' },
