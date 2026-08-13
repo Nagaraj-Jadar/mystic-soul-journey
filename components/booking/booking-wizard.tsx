@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -18,14 +18,19 @@ import {
 import { LotusMark } from "@/components/brand/logo"
 import { WhatsAppButton, WhatsAppIcon } from "@/components/site/whatsapp-button"
 import { ServiceIcon } from "@/components/brand/service-icon"
-import { bookableServices, formatPrice, type Service } from "@/lib/data/services"
+import { formatPrice, type Service as LocalService } from "@/lib/data/services"
+import { createClient } from "@/lib/supabase/client"
 import {
   buildCalendar,
-  timeSlots,
-  bookedSlots,
   WEEKDAYS,
   MONTHS,
   formatLongDate,
+  generateTimeSlots,
+  formatHHMMto12h,
+  groupSlotsByPeriod,
+  timesOverlap,
+  parseHHMMToMinutes,
+  minutesToHHMM,
 } from "@/lib/booking"
 import { site } from "@/lib/data/site"
 import { cn } from "@/lib/utils"
@@ -41,36 +46,249 @@ interface Details {
 
 export function BookingWizard({ initialServiceSlug }: { initialServiceSlug?: string }) {
   const [step, setStep] = useState(0)
-  const [service, setService] = useState<Service | null>(
-    bookableServices.find((s) => s.slug === initialServiceSlug) ?? null,
-  )
+  const [service, setService] = useState<LocalService | null>(null)
+  const [services, setServices] = useState<LocalService[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [time, setTime] = useState<string | null>(null)
   const [details, setDetails] = useState<Details>({ name: "", phone: "", email: "", message: "" })
   const [payment, setPayment] = useState<"whatsapp" | "upi">("whatsapp")
   const [confirmed, setConfirmed] = useState(false)
+  const [confirmedAppointment, setConfirmedAppointment] = useState<any | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const now = new Date()
   const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() })
-  const calendar = useMemo(() => buildCalendar(view.year, view.month, now), [view])
+  const [availabilityMap, setAvailabilityMap] = useState<Record<number, { start_time?: string; end_time?: string; is_available?: boolean }>>({})
+  const [slots24, setSlots24] = useState<string[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [dateAvailable, setDateAvailable] = useState<boolean | null>(null)
+  const [dateAvailableLoading, setDateAvailableLoading] = useState(false)
+  const [bookingError, setBookingError] = useState<string | null>(null)
+  const calendar = useMemo(() => buildCalendar(view.year, view.month, now, availabilityMap), [view, availabilityMap])
+
+  // Load active services from Supabase
+  useEffect(() => {
+    let mounted = true
+    const supabase = createClient()
+    supabase
+      .from("services")
+      .select(
+        "id, slug, name, short_description, description, duration_minutes, price, is_active",
+      )
+      .eq("is_active", true)
+      .then((res) => {
+        if (!mounted) return
+        if (res.error) return console.error(res.error)
+        const rows = (res.data ?? []) as any[]
+        const mapped = rows.map((r) => ({
+          id: r.id,
+          slug: r.slug ?? r.id,
+          name: r.name ?? "Service",
+          shortDescription: r.short_description ?? "",
+          description: r.description ?? "",
+          durationMinutes: Number(r.duration_minutes ?? 60),
+          price: Number(r.price ?? 0),
+          icon: "lotus",
+          bookable: true,
+        }))
+        setServices(mapped as unknown as LocalService[])
+        if (initialServiceSlug) {
+          const found = mapped.find((s) => s.slug === initialServiceSlug)
+          if (found) setService(found as unknown as LocalService)
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [initialServiceSlug])
+
+  // Load weekly availability map
+  useEffect(() => {
+    const supabase = createClient()
+    let mounted = true
+    supabase
+      .from('availability')
+      .select('day_of_week, start_time, end_time, is_available')
+      .then((res) => {
+        if (!mounted) return
+        if (res.error) {
+          console.error(res.error)
+          return
+        }
+        const map: Record<number, any> = {}
+        for (const r of res.data ?? []) {
+          map[Number(r.day_of_week)] = {
+            start_time: (r.start_time ?? '09:00').slice(0,5),
+            end_time: (r.end_time ?? '17:00').slice(0,5),
+            is_available: r.is_available !== false,
+          }
+        }
+        setAvailabilityMap(map)
+      })
+
+    return () => { mounted = false }
+  }, [])
+
+  // Load time slots when service or selectedDate changes
+  useEffect(() => {
+    let mounted = true
+    async function loadSlots() {
+      setSlotsError(null)
+      setSlots24([])
+      setDateAvailable(null)
+      if (!service || !selectedDate) return
+      setDateAvailableLoading(true)
+      setSlotsLoading(true)
+      try {
+        const supabase = createClient()
+        const appointment_date = selectedDate.toISOString().slice(0,10)
+        const weekday = selectedDate.getDay()
+        let avail = availabilityMap[weekday]
+        // If availability map is not yet populated for this weekday, fetch it directly
+        if (!avail) {
+          const { data: singleAvail } = await supabase
+            .from('availability')
+            .select('day_of_week, start_time, end_time, is_available')
+            .eq('day_of_week', weekday)
+            .maybeSingle()
+          if (singleAvail) {
+            avail = {
+              start_time: (singleAvail.start_time ?? '09:00').slice(0,5),
+              end_time: (singleAvail.end_time ?? '17:00').slice(0,5),
+              is_available: singleAvail.is_available !== false,
+            }
+          }
+        }
+
+        if (!avail || !avail.is_available) {
+          if (mounted) {
+            setSlots24([])
+            setDateAvailable(false)
+          }
+          return
+        }
+
+        if (mounted) setDateAvailable(true)
+
+        const generated = generateTimeSlots(avail.start_time || '09:00', avail.end_time || '17:00', service.durationMinutes)
+
+        // fetch existing appointments for the date
+        const { data: existingAppts, error: apptErr } = await supabase
+          .from('appointments')
+          .select('start_time, end_time')
+          .eq('appointment_date', appointment_date)
+
+        if (apptErr) {
+          console.error(apptErr)
+          if (mounted) setSlotsError('Unable to load bookings')
+          return
+        }
+
+        // filter out generated slots that overlap existing appointments
+        const available = generated.filter((slot24) => {
+          const slotStart = slot24
+          const slotEnd = minutesToHHMM(parseHHMMToMinutes(slot24) + Number(service.durationMinutes))
+          // don't offer past times for today
+          if (selectedDate.toDateString() === new Date().toDateString()) {
+            const nowMin = new Date()
+            const nowMinutes = nowMin.getHours() * 60 + nowMin.getMinutes()
+            if (parseHHMMToMinutes(slotStart) <= nowMinutes) return false
+          }
+
+          for (const appt of existingAppts ?? []) {
+            const apptStart = (appt.start_time ?? '').slice(0,5)
+            const apptEnd = (appt.end_time ?? '').slice(0,5)
+            if (!apptStart || !apptEnd) continue
+            if (timesOverlap(slotStart, slotEnd, apptStart, apptEnd)) return false
+          }
+          return true
+        })
+
+        if (mounted) setSlots24(available)
+      } catch (err) {
+        console.error(err)
+        if (mounted) setSlotsError('Unable to load slots')
+      } finally {
+        if (mounted) {
+          setSlotsLoading(false)
+          setDateAvailableLoading(false)
+        }
+      }
+    }
+    loadSlots()
+    return () => { mounted = false }
+  }, [service, selectedDate, availabilityMap])
 
   const canContinue =
     (step === 0 && !!service) ||
-    (step === 1 && !!selectedDate) ||
-    (step === 2 && !!time) ||
+    (step === 1 && !!selectedDate && dateAvailable === true) ||
+    (step === 2 && !!time && (() => {
+      // ensure selected time is still present in generated slots
+      if (!time) return false
+      // convert time like '09:00 AM' to '09:00'
+      const to24 = (label: string) => {
+        const m = label.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+        if (!m) return null
+        let hh = Number(m[1])
+        const mm = m[2]
+        const ampm = m[3].toUpperCase()
+        if (ampm === 'PM' && hh < 12) hh += 12
+        if (ampm === 'AM' && hh === 12) hh = 0
+        return `${String(hh).padStart(2, '0')}:${mm}`
+      }
+      const t24 = to24(time)
+      return Boolean(t24 && slots24.includes(t24))
+    })()) ||
     (step === 3 && details.name.trim() && details.phone.trim()) ||
     step === 4
 
-  function next() {
-    if (step < STEPS.length - 1) setStep((s) => s + 1)
-    else setConfirmed(true)
+  async function next() {
+    setBookingError(null)
+    if (step < STEPS.length - 1) return setStep((s) => s + 1)
+
+    // final step: submit booking to server
+    if (!service || !selectedDate || !time) return
+    setSubmitting(true)
+    try {
+      const payload = {
+        service_id: service.id,
+        appointment_date: selectedDate.toISOString().slice(0, 10),
+        time_slot: time,
+        name: details.name.trim(),
+        phone: details.phone.trim(),
+        email: details.email.trim() || null,
+        city: (details as any).city || null,
+        country: (details as any).country || null,
+        notes: details.message.trim() || null,
+        payment_method: payment,
+      }
+
+      const res = await fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || json?.message || "Unable to create booking.")
+      setConfirmedAppointment(json.appointment ?? json)
+      setConfirmed(true)
+    } catch (err) {
+      console.error(err)
+      setBookingError((err as Error).message || "Booking failed. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
   function back() {
+    setBookingError(null)
     if (step > 0) setStep((s) => s - 1)
   }
 
   if (confirmed) {
-    return <Confirmation service={service!} date={selectedDate!} time={time!} details={details} payment={payment} />
+    return <Confirmation service={service!} date={selectedDate!} time={time!} details={details} payment={payment} appointment={confirmedAppointment} />
   }
 
   return (
@@ -105,12 +323,15 @@ export function BookingWizard({ initialServiceSlug }: { initialServiceSlug?: str
       </div>
 
       <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-[0_20px_60px_-40px_rgba(90,70,40,0.5)] sm:p-8">
+        {bookingError ? (
+          <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{bookingError}</div>
+        ) : null}
         <div className="mb-6 flex items-center gap-3">
           {step > 0 && (
             <button
               type="button"
               onClick={back}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-primary"
+              className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-primary"
               aria-label="Go back"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -122,7 +343,8 @@ export function BookingWizard({ initialServiceSlug }: { initialServiceSlug?: str
           </div>
         </div>
 
-        {step === 0 && <StepService service={service} onSelect={setService} />}
+        {step === 0 && <StepService services={services} service={service} onSelect={setService} />}
+        {step === 3 && <StepDetails details={details} setDetails={setDetails} />}
         {step === 1 && (
           <StepDate
             calendar={calendar}
@@ -132,19 +354,17 @@ export function BookingWizard({ initialServiceSlug }: { initialServiceSlug?: str
             onSelect={setSelectedDate}
           />
         )}
-        {step === 2 && <StepTime time={time} onSelect={setTime} service={service} selectedDate={selectedDate} />}
-        {step === 3 && <StepDetails details={details} setDetails={setDetails} />}
-        {step === 4 && (
-          <StepReview
-            service={service!}
-            date={selectedDate!}
-            time={time!}
-            details={details}
-            payment={payment}
-            setPayment={setPayment}
+        {step === 2 && (
+          <StepTime
+            time={time}
+            onSelect={setTime}
+            service={service}
+            selectedDate={selectedDate}
+            slots24={slots24}
+            slotsLoading={slotsLoading}
+            slotsError={slotsError}
           />
         )}
-
         <button
           type="button"
           disabled={!canContinue}
@@ -202,45 +422,55 @@ function stepSubtitle(step: number, date: Date | null) {
   }
 }
 
-function StepService({ service, onSelect }: { service: Service | null; onSelect: (s: Service) => void }) {
+function StepService({
+  services,
+  service,
+  onSelect,
+}: {
+  services: LocalService[]
+  service: LocalService | null
+  onSelect: (s: LocalService) => void
+}) {
   return (
     <div className="space-y-3">
-      {bookableServices.map((s) => {
-        const active = service?.id === s.id
-        return (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => onSelect(s)}
-            className={cn(
-              "flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all",
-              active
-                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                : "border-border bg-card hover:border-primary/40",
-            )}
-          >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-peach/50 text-terracotta">
-              <ServiceIcon name={s.icon} className="h-5 w-5" />
-            </span>
-            <span className="flex-1">
-              <span className="block font-medium text-primary">{s.name}</span>
-              <span className="block text-sm text-muted-foreground">{s.shortDescription}</span>
-            </span>
-            <span className="flex flex-col items-end text-right">
-              <span className="text-xs text-muted-foreground">{s.durationMinutes} mins</span>
-              <span className="text-sm font-medium text-primary">{formatPrice(s.price)}</span>
-            </span>
-            <span
+      {services.length === 0 ? (
+        <div className="rounded-xl border border-border/60 bg-card p-6 text-center text-sm text-muted-foreground">Loading services...</div>
+      ) : (
+        services.map((s) => {
+          const active = service?.id === s.id
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onSelect(s)}
               className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors",
-                active ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                "flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all",
+                active ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border bg-card hover:border-primary/40",
               )}
             >
-              {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-            </span>
-          </button>
-        )
-      })}
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-peach/50 text-terracotta">
+                <ServiceIcon name={s.icon as any} className="h-5 w-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block font-medium text-primary">{s.name}</span>
+                <span className="block text-sm text-muted-foreground">{(s as any).shortDescription || ""}</span>
+              </span>
+              <span className="flex flex-col items-end text-right">
+                <span className="text-xs text-muted-foreground">{(s as any).durationMinutes} mins</span>
+                <span className="text-sm font-medium text-primary">{formatPrice((s as any).price)}</span>
+              </span>
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors",
+                  active ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                )}
+              >
+                {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+              </span>
+            </button>
+          )
+        })
+      )}
     </div>
   )
 }
@@ -339,44 +569,55 @@ function StepTime({
   onSelect,
   service,
   selectedDate,
+  slots24,
+  slotsLoading,
+  slotsError,
 }: {
   time: string | null
   onSelect: (t: string) => void
-  service: Service | null
+  service: LocalService | null
   selectedDate: Date | null
+  slots24: string[]
+  slotsLoading: boolean
+  slotsError: string | null
 }) {
+  const periods = groupSlotsByPeriod(slots24)
   return (
     <div className="space-y-6">
-      {(Object.keys(timeSlots) as (keyof typeof timeSlots)[]).map((period) => (
-        <div key={period}>
-          <p className="mb-2.5 text-sm font-medium text-primary">{period}</p>
-          <div className="grid grid-cols-3 gap-2.5">
-            {timeSlots[period].map((slot) => {
-              const booked = bookedSlots.includes(slot)
-              const active = time === slot
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  disabled={booked}
-                  onClick={() => onSelect(slot)}
-                  className={cn(
-                    "flex flex-col items-center rounded-xl border py-2.5 text-sm transition-all",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : booked
-                        ? "cursor-not-allowed border-border bg-secondary/50 text-muted-foreground/50"
-                        : "border-border hover:border-primary/50",
-                  )}
-                >
-                  {slot}
-                  {booked && <span className="text-[0.65rem]">Booked</span>}
-                </button>
-              )
-            })}
-          </div>
+      {slotsLoading ? (
+        <div className="rounded-xl border border-border/60 bg-card p-6 text-center text-sm text-muted-foreground">Loading available times…</div>
+      ) : slotsError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
+          {slotsError}
         </div>
-      ))}
+      ) : slots24.length === 0 ? (
+        <div className="rounded-xl border border-border/60 bg-card p-6 text-center text-sm text-muted-foreground">No sessions are available on this date. Please choose another date.</div>
+      ) : (
+        Object.keys(periods).map((period) => (
+          <div key={period}>
+            <p className="mb-2.5 text-sm font-medium text-primary">{period}</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {periods[period].map((slot24) => {
+                const slotLabel = formatHHMMto12h(slot24)
+                const active = time === slotLabel
+                return (
+                  <button
+                    key={slot24}
+                    type="button"
+                    onClick={() => onSelect(slotLabel)}
+                    className={cn(
+                      "flex flex-col items-center rounded-xl border py-2.5 text-sm transition-all",
+                      active ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary/50",
+                    )}
+                  >
+                    {slotLabel}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))
+      )}
 
       {time && service && selectedDate && (
         <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-secondary/50 p-4">
@@ -468,7 +709,7 @@ function StepReview({
   payment,
   setPayment,
 }: {
-  service: Service
+  service: LocalService
   date: Date
   time: string
   details: Details
@@ -568,12 +809,14 @@ function Confirmation({
   time,
   details,
   payment,
+  appointment,
 }: {
-  service: Service
+  service: LocalService
   date: Date
   time: string
   details: Details
   payment: "whatsapp" | "upi"
+  appointment?: any
 }) {
   const rows = [
     { icon: CalendarDays, label: "Date", value: formatLongDate(date) },
@@ -614,15 +857,21 @@ function Confirmation({
             ))}
           </dl>
         </div>
-
         <div className="mt-5 rounded-xl bg-peach/30 px-4 py-3 text-sm text-foreground/80">
           You will receive a confirmation on WhatsApp shortly. Thank you, {details.name || "friend"}!
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-4">
+          <h3 className="text-lg font-medium text-primary">Complete Your Payment</h3>
+          <p className="text-sm text-muted-foreground">Scan the QR code using PhonePe or your preferred UPI app.</p>
+          <div className="mx-auto max-w-xs">
+            <img src="/phonepe-qr.png" alt="PhonePe UPI QR" className="w-full rounded-xl border border-border p-4 bg-background" />
+          </div>
+          <p className="text-sm text-muted-foreground">After completing the payment, please send the payment screenshot to us on WhatsApp for verification.</p>
           <WhatsAppButton
             className="w-full"
-            message={`Hi, I just booked a ${service.name} on ${formatLongDate(date)} at ${time}.`}
+            label="Send Payment Screenshot on WhatsApp"
+            message={`Hi, I completed payment for ${service.name} on ${formatLongDate(date)} at ${time}. Appointment ID: ${appointment?.id ?? ''}. Please find my payment screenshot attached.`}
           />
           <Link
             href="/"
