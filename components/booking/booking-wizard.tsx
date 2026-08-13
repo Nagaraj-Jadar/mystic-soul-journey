@@ -865,7 +865,7 @@ function Confirmation({
           <h3 className="text-lg font-medium text-primary">Complete Your Payment</h3>
           <p className="text-sm text-muted-foreground">Scan the QR code using PhonePe or your preferred UPI app.</p>
           <div className="mx-auto max-w-xs">
-            <img src="/phonepe-qr.png" alt="PhonePe UPI QR" className="w-full rounded-xl border border-border p-4 bg-background" />
+            <img src="/phonepe-qr.jpeg" alt="PhonePe UPI QR" className="w-full rounded-xl border border-border p-4 bg-background" />
           </div>
           <p className="text-sm text-muted-foreground">After completing the payment, please send the payment screenshot to us on WhatsApp for verification.</p>
           <WhatsAppButton
