@@ -2,7 +2,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight, Clock, MonitorPlay } from 'lucide-react'
 import type { Course } from '@/lib/data/courses'
-import { formatPrice } from '@/lib/data/services'
 import { WhatsAppButton } from '@/components/site/whatsapp-button'
 
 export function CourseCard({ course, variant = 'compact' }: { course: Course; variant?: 'compact' | 'full' }) {
@@ -38,7 +37,6 @@ export function CourseCard({ course, variant = 'compact' }: { course: Course; va
             <span className="inline-flex items-center gap-1.5">
               <MonitorPlay className="h-3.5 w-3.5 text-terracotta" /> {course.mode}
             </span>
-            <span className="font-medium text-primary">{formatPrice(course.price)}</span>
           </div>
         )}
 

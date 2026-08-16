@@ -1,31 +1,44 @@
-import Image from 'next/image'
-import Link from 'next/link'
-import { Play } from 'lucide-react'
-import type { MediaVideo } from '@/lib/data/media'
+"use client"
 
-export function VideoCard({ video }: { video: MediaVideo }) {
+import Image from "next/image"
+import { Play } from "lucide-react"
+import type { MediaVideo } from "@/lib/data/media"
+
+interface VideoCardProps {
+  video: MediaVideo
+  onClick: () => void
+  featured?: boolean
+}
+
+export function VideoCard({ video, onClick, featured = false }: VideoCardProps) {
+  const thumbnailUrl = `https://img.youtube.com/vi/${video.videoId}/maxresdefault.jpg`
+
   return (
-    <Link
-      href={video.youtubeUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex h-full flex-col"
+    <div
+      className={`group flex h-full cursor-pointer flex-col ${featured ? "lg:col-span-2 lg:row-span-2" : ""}`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      aria-label={`Play video: ${video.title}`}
     >
       <div className="relative aspect-video overflow-hidden rounded-2xl border border-border/70">
         <Image
-          src={video.thumbnail || '/placeholder.svg'}
+          src={thumbnailUrl}
           alt={video.title}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 768px) 100vw, 25vw"
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background/85 text-terracotta shadow-md backdrop-blur-sm transition-transform group-hover:scale-110">
             <Play className="h-5 w-5 translate-x-0.5 fill-current" />
           </span>
-        </span>
-        <span className="absolute bottom-2 right-2 rounded-md bg-foreground/70 px-1.5 py-0.5 text-[0.65rem] font-medium text-background">
-          {video.duration}
         </span>
       </div>
       <div className="mt-3">
@@ -36,6 +49,6 @@ export function VideoCard({ video }: { video: MediaVideo }) {
           {video.title}
         </h3>
       </div>
-    </Link>
+    </div>
   )
 }

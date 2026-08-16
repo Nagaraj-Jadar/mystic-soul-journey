@@ -1,8 +1,8 @@
 export const site = {
   name: 'Mystic Soul Journey',
   tagline: 'Heal · Awaken · Transform',
-  whatsappNumber: '+919876543210',
-  whatsappUrl: 'https://wa.me/919876543210',
+  whatsappNumber: '+91 99725 02946',
+  whatsappUrl: 'https://wa.me/919972502946',
   instagramUrl: 'https://instagram.com',
   youtubeUrl: 'https://youtube.com',
   email: 'hello@mysticsouljourney.com',

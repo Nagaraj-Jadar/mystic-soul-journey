@@ -5,6 +5,7 @@ import Link from "next/link"
 import { PageHero } from "@/components/site/page-hero"
 import { Reveal } from "@/components/motion/reveal"
 import { VideoCard } from "@/components/cards/video-card"
+import { VideoModal } from "@/components/ui/video-modal"
 import { YouTubeIcon } from "@/components/brand/social-icons"
 import { mediaVideos, mediaCategories } from "@/lib/data/media"
 import { site } from "@/lib/data/site"
@@ -12,7 +13,20 @@ import { cn } from "@/lib/utils"
 
 export default function MediaPage() {
   const [active, setActive] = useState<(typeof mediaCategories)[number]>("All")
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   const filtered = active === "All" ? mediaVideos : mediaVideos.filter((v) => v.category === active)
+
+  const handleVideoClick = (videoId: string) => {
+    setSelectedVideoId(videoId)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedVideoId(null)
+  }
 
   return (
     <>
@@ -54,7 +68,11 @@ export default function MediaPage() {
         <div className="grid gap-x-6 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((v, i) => (
             <Reveal key={v.id} delay={(i % 3) * 0.06}>
-              <VideoCard video={v} />
+              <VideoCard
+                video={v}
+                onClick={() => handleVideoClick(v.videoId)}
+                featured={v.featured}
+              />
             </Reveal>
           ))}
         </div>
@@ -78,6 +96,12 @@ export default function MediaPage() {
           </div>
         </div>
       </section>
+
+      <VideoModal
+        videoId={selectedVideoId}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </>
   )
 }

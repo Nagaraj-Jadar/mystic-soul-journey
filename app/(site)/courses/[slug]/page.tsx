@@ -4,7 +4,6 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Check, Clock, MonitorPlay, Users } from "lucide-react"
 import { courses, getCourse } from "@/lib/data/courses"
-import { formatPrice } from "@/lib/data/services"
 import { Reveal } from "@/components/motion/reveal"
 import { WhatsAppButton } from "@/components/site/whatsapp-button"
 
@@ -90,9 +89,8 @@ export default async function CourseDetailsPage({
           <Reveal delay={0.1}>
             <aside className="lg:sticky lg:top-28 lg:self-start">
               <div className="rounded-3xl border border-border/70 bg-card p-7">
-                <p className="text-sm text-muted-foreground">Course Investment</p>
-                <p className="mt-1 font-serif text-4xl text-primary">{formatPrice(course.price)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{course.durationLabel}</p>
+                <p className="text-sm text-muted-foreground">Course Duration</p>
+                <p className="mt-1 font-serif text-2xl text-primary">{course.durationLabel}</p>
 
                 <div className="mt-6 space-y-3">
                   <WhatsAppButton

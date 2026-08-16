@@ -1,14 +1,31 @@
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { mediaVideos } from '@/lib/data/media'
-import { SectionHeading } from '@/components/site/section-heading'
-import { VideoCard } from '@/components/cards/video-card'
-import { YouTubeIcon } from '@/components/brand/social-icons'
-import { site } from '@/lib/data/site'
-import { Stagger, StaggerItem } from '@/components/motion/reveal'
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { ArrowRight } from "lucide-react"
+import { mediaVideos } from "@/lib/data/media"
+import { SectionHeading } from "@/components/site/section-heading"
+import { VideoCard } from "@/components/cards/video-card"
+import { VideoModal } from "@/components/ui/video-modal"
+import { YouTubeIcon } from "@/components/brand/social-icons"
+import { site } from "@/lib/data/site"
+import { Stagger, StaggerItem } from "@/components/motion/reveal"
 
 export function MediaSection() {
   const videos = mediaVideos.slice(0, 4)
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleVideoClick = (videoId: string) => {
+    setSelectedVideoId(videoId)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedVideoId(null)
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
       <div className="flex flex-col items-center">
@@ -18,7 +35,10 @@ export function MediaSection() {
       <Stagger className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {videos.map((v) => (
           <StaggerItem key={v.id}>
-            <VideoCard video={v} />
+            <VideoCard
+              video={v}
+              onClick={() => handleVideoClick(v.videoId)}
+            />
           </StaggerItem>
         ))}
       </Stagger>
@@ -40,6 +60,12 @@ export function MediaSection() {
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
+
+      <VideoModal
+        videoId={selectedVideoId}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </section>
   )
 }

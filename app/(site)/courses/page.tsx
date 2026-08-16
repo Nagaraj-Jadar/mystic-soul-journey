@@ -9,7 +9,7 @@ import { courses } from "@/lib/data/courses"
 export const metadata: Metadata = {
   title: "Courses & Workshops — Mystic Soul Journey",
   description:
-    "Transformative courses and workshops for growth and healing — from inner healing to Akashic reading foundations and spiritual awakening.",
+    "Transformative courses in Akashic Records reading, tarot, Vedic numerology and Lama Fera healing to support your growth and practice.",
 }
 
 export default function CoursesPage() {
