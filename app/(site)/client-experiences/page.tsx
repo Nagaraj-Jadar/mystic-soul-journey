@@ -1,18 +1,34 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { PageHero } from "@/components/site/page-hero"
 import { Reveal } from "@/components/motion/reveal"
 import { TestimonialCard } from "@/components/cards/testimonial-card"
 import { WhatsAppButton } from "@/components/site/whatsapp-button"
-import { testimonials } from "@/lib/data/testimonials"
+import { createClient } from "@/lib/supabase/client"
+import type { Testimonial } from "@/lib/data/testimonials"
 import { cn } from "@/lib/utils"
 
 export default function ClientExperiencesPage() {
-  const services = useMemo(() => ["All", ...Array.from(new Set(testimonials.map((t) => t.service)))], [])
+  const supabase = createClient()
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [loading, setLoading] = useState(true)
   const [active, setActive] = useState("All")
 
-  const filtered = active === "All" ? testimonials : testimonials.filter((t) => t.service === active)
+  useEffect(() => {
+    supabase
+      .from("testimonials")
+      .select("id, client_name, content, image_url, is_published, created_at, updated_at")
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setTestimonials((data ?? []) as Testimonial[])
+        setLoading(false)
+      })
+  }, [])
+
+  const services = ["All"]
+  const filtered = active === "All" ? testimonials : []
 
   return (
     <>
@@ -42,6 +58,8 @@ export default function ClientExperiencesPage() {
         </div>
 
         <div className="columns-1 gap-6 sm:columns-2 lg:columns-3 [&>*]:mb-6 [&>*]:break-inside-avoid">
+          {loading ? <p className="text-center text-sm text-muted-foreground">Loading experiences...</p> : null}
+          {!loading && filtered.length === 0 ? <p className="text-center text-sm text-muted-foreground">No client experiences yet.</p> : null}
           {filtered.map((t, i) => (
             <Reveal key={t.id} delay={(i % 3) * 0.06}>
               <TestimonialCard testimonial={t} />
