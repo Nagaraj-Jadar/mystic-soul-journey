@@ -8,7 +8,7 @@ export const site = {
   email: 'hello@mysticsouljourney.com',
   practitioner: {
     firstName: 'Soumyaa',
-    fullName: 'Soumyaa Sharma',
+    fullName: 'Soumyaa Vasist',
     role: 'Spiritual Guide & Healer',
   },
 }
